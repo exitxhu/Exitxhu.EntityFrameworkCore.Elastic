@@ -103,7 +103,7 @@ public partial class ElasticShapedQueryCompilingExpressionVisitor
         private sealed class Enumerator : IEnumerator<T>, IAsyncEnumerator<T>
         {
             private readonly ElasticQueryContext _cosmosQueryContext;
-            private readonly string _cosmosContainer;
+            private readonly string _index;
             private readonly Func<ElasticQueryContext, JObject, T> _shaper;
             private readonly Type _contextType;
             private readonly IDiagnosticsLogger<DbLoggerCategory.Query> _queryLogger;
@@ -119,7 +119,7 @@ public partial class ElasticShapedQueryCompilingExpressionVisitor
             public Enumerator(ReadItemQueryingEnumerable<T> readItemEnumerable, CancellationToken cancellationToken = default)
             {
                 _cosmosQueryContext = readItemEnumerable._cosmosQueryContext;
-                _cosmosContainer = readItemEnumerable._cosmosContainer;
+                _index = readItemEnumerable._cosmosContainer;
                 _shaper = readItemEnumerable._shaper;
                 _contextType = readItemEnumerable._contextType;
                 _queryLogger = readItemEnumerable._queryLogger;
@@ -158,8 +158,8 @@ public partial class ElasticShapedQueryCompilingExpressionVisitor
 
                     ///TODO
 
-                    _item = _cosmosQueryContext.ElasticClient.ExecuteReadItem(
-                        _cosmosContainer,
+                    _item = _cosmosQueryContext.ElasticClient.ExecuteReadItem<T>(
+                        _index,
                         resourceId);
 
                     return ShapeResult();
@@ -197,8 +197,8 @@ public partial class ElasticShapedQueryCompilingExpressionVisitor
 
                     EntityFrameworkMetricsData.ReportQueryExecuting();
 
-                    _item = await _cosmosQueryContext.ElasticClient.ExecuteReadItemAsync(
-                            _cosmosContainer,
+                    _item = await _cosmosQueryContext.ElasticClient.ExecuteReadItemAsync<T>(
+                            _index,
                             resourceId,
                             _cancellationToken)
                         .ConfigureAwait(false);

@@ -4,6 +4,15 @@ using Microsoft.EntityFrameworkCore;
 
 using Nest;
 
+using System.Reflection;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+
+
+var s = JsonSerializer.SerializeToNode(new DateTime());
+ MethodInfo? GetItemMethodInfo =
+    typeof(JsonObject).GetProperty("Item", new[] { typeof(string) })?.GetGetMethod();
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.

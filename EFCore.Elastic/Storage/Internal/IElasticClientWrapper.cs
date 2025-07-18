@@ -19,15 +19,17 @@ public interface IElasticClientWrapper
 
     bool CreateItem(string indexName, object newDocument, string id, IUpdateEntry entry);
     Task<bool> CreateItemAsync(string indexName, object newDocument, string id, IUpdateEntry entry, CancellationToken cancellationToken);
-    bool DeleteItem(string collectionId, string v, IUpdateEntry entry);
-    Task<bool> DeleteItemAsync(string collectionId, string v, IUpdateEntry entry, CancellationToken cancellationToken);
-    JObject ExecuteReadItem(string cosmosContainer, string resourceId);
-    Task<JObject> ExecuteReadItemAsync(string cosmosContainer, string resourceId, CancellationToken cancellationToken);
-    IEnumerable<JToken> ExecuteSqlQuery(string cosmosContainer, CosmosSqlQuery sqlQuery);
-    IAsyncEnumerable<JToken> ExecuteSqlQueryAsync(string cosmosContainer, CosmosSqlQuery sqlQuery);
+    bool DeleteItem(string indexName, string v, IUpdateEntry entry);
+    Task<bool> DeleteItemAsync(string indexName, string v, IUpdateEntry entry, CancellationToken cancellationToken);
+    JObject ExecuteReadItem(string indexName, string resourceId);
+    JObject ExecuteReadItem<T>(string indexName, string resourceId);
+    Task<JObject> ExecuteReadItemAsync(string indexName, string resourceId, CancellationToken cancellationToken);
+    Task<JObject> ExecuteReadItemAsync<T>(string indexName, string resourceId, CancellationToken cancellationToken);
+    IEnumerable<JToken> ExecuteSqlQuery(string indexName, CosmosSqlQuery sqlQuery);
+    IAsyncEnumerable<JToken> ExecuteSqlQueryAsync(string indexName, CosmosSqlQuery sqlQuery);
     IEnumerable<JToken> GetResponseMessageEnumerable(object responseMessage);
-    bool ReplaceItem(string collectionId, string v, JObject document, IUpdateEntry entry);
-    Task<bool> ReplaceItemAsync(string collectionId, string v, JObject document, IUpdateEntry entry, CancellationToken cancellationToken);
+    bool ReplaceItem(string indexName, string v, JObject document, IUpdateEntry entry);
+    Task<bool> ReplaceItemAsync(string indexName, string v, JObject document, IUpdateEntry entry, CancellationToken cancellationToken);
     ///// <summary>
     /////     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
     /////     the same compatibility standards as public APIs. It may be changed or removed without notice in

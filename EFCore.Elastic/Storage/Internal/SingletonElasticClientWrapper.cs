@@ -2,10 +2,17 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using Elastic.Clients.Elasticsearch;
+using Elastic.Clients.Elasticsearch.Serialization;
+using Elastic.Transport;
 
 using Microsoft.EntityFrameworkCore.Cosmos.Infrastructure.Internal;
 
+using Newtonsoft.Json;
+
 using System.Collections.Specialized;
+using System.Globalization;
+using System.Text;
+using System.Text.Json;
 
 namespace Microsoft.EntityFrameworkCore.Cosmos.Storage.Internal;
 
@@ -31,7 +38,22 @@ public class SingletonElasticClientWrapper : ISingletonElasticClientWrapper
     {
         _connectionString = options.ConnectionString;
 
-        var settings = new ElasticsearchClientSettings(new Uri(_connectionString));
+        var settings = new ElasticsearchClientSettings(new SingleNodePool(new Uri(_connectionString)),
+            (a, b) =>
+            {
+
+                return new DefaultSourceSerializer(
+                            b,
+                            opts =>
+                            {
+                                // e.g. remove the DoubleWithFractionalPortionConverter
+                                //opts.Converters.Remove(opts.Converters.First(c => c.GetType().Name == "DoubleWithFractionalPortionConverter"));
+
+                                opts.Converters.Add(new CustomDateTimeConverter());
+                            }
+                        );
+            }
+            );
 
         if (options.ServerVersion == ElasticBaseVersion.V8_X_X)
         {
@@ -40,7 +62,12 @@ public class SingletonElasticClientWrapper : ISingletonElasticClientWrapper
             //    { "Accept", "application/vnd.elasticsearch+json;compatible-with=8" },
             //    { "Content-Type", "application/vnd.elasticsearch+json;compatible-with=8"}
             //});
+
+
         }
+
+
+
         _clientSetting = settings;
     }
 
@@ -64,5 +91,73 @@ public class SingletonElasticClientWrapper : ISingletonElasticClientWrapper
     public virtual void Dispose()
     {
         _client = null;
+    }
+}
+public class CustomDateTimeConverter : System.Text.Json.Serialization.JsonConverter<DateTime>
+{
+    private readonly string _format;
+
+    public CustomDateTimeConverter()
+    {
+        _format = "yyyy/MM/dd HH:mm:ss";
+    }
+
+    public override DateTime Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        return DateTime.Parse(reader.GetString()!, null, DateTimeStyles.AdjustToUniversal);
+    }
+
+    public override void Write(Utf8JsonWriter writer, DateTime value, JsonSerializerOptions options)
+    {
+        writer.WriteStringValue(value.ToUniversalTime().ToString(_format));
+    }
+}
+public class VanillaSerializer : Serializer
+{
+    public override object? Deserialize(Type type, Stream stream)
+    {
+        using var reader = new StreamReader(stream, Encoding.UTF8, leaveOpen: true);
+        using var jsonReader = new JsonTextReader(reader);
+        return ElasticClientWrapper.Serializer.Deserialize(jsonReader, type);
+    }
+
+    public override T Deserialize<T>(Stream stream)
+    {
+        using var reader = new StreamReader(stream, Encoding.UTF8, leaveOpen: true);
+        using var jsonReader = new JsonTextReader(reader);
+        return ElasticClientWrapper.Serializer.Deserialize<T>(jsonReader);
+    }
+
+    public override async ValueTask<object?> DeserializeAsync(Type type, Stream stream, CancellationToken cancellationToken = default)
+    {
+        using var reader = new StreamReader(stream, Encoding.UTF8, leaveOpen: true);
+        var json = await reader.ReadToEndAsync().WaitAsync(cancellationToken);
+        return JsonConvert.DeserializeObject(json, type);
+    }
+
+    public override async ValueTask<T> DeserializeAsync<T>(Stream stream, CancellationToken cancellationToken = default)
+    {
+        using var reader = new StreamReader(stream, Encoding.UTF8, leaveOpen: true);
+        var json = await reader.ReadToEndAsync().WaitAsync(cancellationToken);
+        return JsonConvert.DeserializeObject<T>(json)!;
+    }
+    public override void Serialize<T>(T data, Stream stream, SerializationFormatting formatting = SerializationFormatting.None)
+    {
+        using var writer = new StreamWriter(stream, Encoding.UTF8, leaveOpen: true);
+        using var jsonWriter = new JsonTextWriter(writer)
+        {
+            Formatting = formatting == SerializationFormatting.Indented ? Formatting.Indented : Formatting.None
+        };
+        ElasticClientWrapper.Serializer.Serialize(jsonWriter, data);
+        jsonWriter.Flush();
+    }
+
+    public override async Task SerializeAsync<T>(T data, Stream stream, SerializationFormatting formatting = SerializationFormatting.None,
+        CancellationToken cancellationToken = default)
+    {
+        using var writer = new StreamWriter(stream, Encoding.UTF8, leaveOpen: true);
+        var json = JsonConvert.SerializeObject(data, formatting == SerializationFormatting.Indented ? Formatting.Indented : Formatting.None);
+        await writer.WriteAsync(json.AsMemory(), cancellationToken);
+        await writer.FlushAsync();
     }
 }

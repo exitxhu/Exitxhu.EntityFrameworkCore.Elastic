@@ -38,8 +38,11 @@ public class DocumentSource
         _indexName = entityType.GetIndexName()!;
         _database = database;
         _entityType = entityType;
-        _idProperty = entityType.GetProperties().FirstOrDefault(p => p.GetJsonPropertyName() == CosmosJsonIdConvention.IdPropertyJsonName);
+        _idProperty = entityType.GetKeys().FirstOrDefault()?.Properties.First() ?? 
+            entityType.GetProperties().FirstOrDefault(p => p.GetJsonPropertyName() == CosmosJsonIdConvention.IdPropertyJsonName);
         _jObjectProperty = entityType.FindProperty(CosmosPartitionKeyInPrimaryKeyConvention.JObjectPropertyName);
+
+
     }
 
     /// <summary>
@@ -60,7 +63,7 @@ public class DocumentSource
     public virtual string GetId(IUpdateEntry entry)
         => _idProperty is null
             ? throw new InvalidOperationException("CosmosStrings.NoIdProperty(_entityType.DisplayName())")
-            : (string)entry.GetCurrentProviderValue(_idProperty)!;
+            : entry.GetCurrentProviderValue(_idProperty).ToString();
 
     /// <summary>
     ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to

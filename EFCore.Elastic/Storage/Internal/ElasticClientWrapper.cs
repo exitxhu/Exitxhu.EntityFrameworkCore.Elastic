@@ -47,7 +47,15 @@ public class ElasticClientWrapper : IElasticClientWrapper
 
     public bool CreateItem(string indexName, object newDocument, string id, IUpdateEntry entry)
     {
-        var res = Client.Index(newDocument, indexName, new Id(id));
+        IndexResponse res = null;
+        if (newDocument is JObject j)
+        {
+            var t = j.ToObject(entry.EntityType.ClrType);
+            res = Client.Index(t, indexName, new Id(id));
+
+        }
+        else
+            res = Client.Index(newDocument, indexName, new Id(id));
         return res.IsSuccess();
     }
 
@@ -59,31 +67,49 @@ public class ElasticClientWrapper : IElasticClientWrapper
 
     public bool DeleteItem(string indexName, string id, IUpdateEntry entry)
     {
-        var res = Client.Delete(indexName, new Id(id));
+
+        var res = Client.Delete(new DeleteRequest(indexName, id));
+
         return res.IsSuccess();
     }
 
-    public Task<bool> DeleteItemAsync(string indexName, string id, IUpdateEntry entry, CancellationToken cancellationToken)
+    public async Task<bool> DeleteItemAsync(string indexName, string id, IUpdateEntry entry, CancellationToken cancellationToken)
+    {
+        var res = await Client.DeleteAsync(new DeleteRequest(indexName, id));
+
+        return res.IsSuccess();
+    }
+
+    public JObject ExecuteReadItem(string indexName, string id)
+    {
+        var res = Client.Get(indexName, new Id(id));
+        return JObject.FromObject(res.Source);
+    }
+    public JObject ExecuteReadItem<T>(string indexName, string id)
+    {
+        var res = Client.Get<T>(indexName, new Id(id));
+        var j = JObject.FromObject(res.Source);
+        return j;
+    }
+
+    public async Task<JObject> ExecuteReadItemAsync(string indexName, string id, CancellationToken cancellationToken)
+    {
+        var res = await Client.GetAsync(indexName, new Id(id), cancellationToken);
+        return JObject.FromObject(res.Source);
+    }
+    public async Task<JObject> ExecuteReadItemAsync<T>(string indexName, string id, CancellationToken cancellationToken)
+    {
+        var res = await Client.GetAsync<T>(indexName, new Id(id), cancellationToken);
+        return JObject.FromObject(res.Source);
+    }
+
+
+    public IEnumerable<JToken> ExecuteSqlQuery(string indexName, CosmosSqlQuery sqlQuery)
     {
         throw new NotImplementedException();
     }
 
-    public JObject ExecuteReadItem(string cosmosContainer, string resourceId)
-    {
-        throw new NotImplementedException();
-    }
-
-    public Task<JObject> ExecuteReadItemAsync(string cosmosContainer, string resourceId, CancellationToken cancellationToken)
-    {
-        throw new NotImplementedException();
-    }
-
-    public IEnumerable<JToken> ExecuteSqlQuery(string cosmosContainer, CosmosSqlQuery sqlQuery)
-    {
-        throw new NotImplementedException();
-    }
-
-    public IAsyncEnumerable<JToken> ExecuteSqlQueryAsync(string cosmosContainer, CosmosSqlQuery sqlQuery)
+    public IAsyncEnumerable<JToken> ExecuteSqlQueryAsync(string indexName, CosmosSqlQuery sqlQuery)
     {
         throw new NotImplementedException();
     }
@@ -93,13 +119,15 @@ public class ElasticClientWrapper : IElasticClientWrapper
         throw new NotImplementedException();
     }
 
-    public bool ReplaceItem(string indexName, string v, JObject document, IUpdateEntry entry)
+    public bool ReplaceItem(string indexName, string id, JObject document, IUpdateEntry entry)
     {
-        throw new NotImplementedException();
+        return CreateItem(indexName, document, id, entry);
     }
 
-    public Task<bool> ReplaceItemAsync(string indexName, string v, JObject document, IUpdateEntry entry, CancellationToken cancellationToken)
+    public async Task<bool> ReplaceItemAsync(string indexName, string id, JObject document, IUpdateEntry entry, CancellationToken cancellationToken)
     {
-        throw new NotImplementedException();
+        return await CreateItemAsync(indexName, document, id, entry, cancellationToken);
     }
+
+
 }
